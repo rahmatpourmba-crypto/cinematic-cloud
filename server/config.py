@@ -34,7 +34,17 @@ FPS = int(os.environ.get("FPS", "30"))
 WIDTH = int(os.environ.get("WIDTH", "1920"))
 HEIGHT = int(os.environ.get("HEIGHT", "1080"))
 CRF = int(os.environ.get("CRF", "18"))
-CONCURRENCY = int(os.environ.get("CONCURRENCY", os.environ.get("CPU_COUNT", "4")))
+
+
+def _default_concurrency() -> int:
+    """Never exceed the available CPU cores (Remotion rejects overcommit)."""
+    try:
+        return max(1, min(os.cpu_count() or 2, 4))
+    except Exception:
+        return 2
+
+
+CONCURRENCY = int(os.environ.get("CONCURRENCY") or _default_concurrency())
 RENDER_TIMEOUT = int(os.environ.get("RENDER_TIMEOUT", "3300"))
 
 # --- YouTube ---
