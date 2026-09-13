@@ -45,17 +45,26 @@ def _imagen(prompt: str, out_path: Path, seed: int, width: int, height: int) -> 
 
 
 def _pollinations(prompt: str, out_path: Path, seed: int, width: int, height: int) -> Path:
+    from .imgproc import postprocess_image
+
     url = (
         "https://image.pollinations.ai/prompt/"
         f"{quote(prompt)}?width={width}&height={height}&seed={seed}"
-        f"&nologo=true&model=flux"
+        f"&nologo=true&enhance=true&model=flux"
     )
     last = None
     for i in range(4):
         try:
-            r = requests.get(url, timeout=240)
+            r = requests.get(url, timeout=300)
             if r.status_code == 200 and len(r.content) > 5000:
-                out_path.write_bytes(r.content)
+                raw = config.WORK_DIR / f"raw_{out_path.stem}.jpg"
+                raw.write_bytes(r.content)
+                try:
+                    postprocess_image(raw, out_path, config.WIDTH, config.HEIGHT)
+                except Exception as e:  # noqa: BLE001
+                    print(f"  [pollinations] postprocess failed ({e})", flush=True)
+                    out_path.write_bytes(r.content)
+                raw.unlink(missing_ok=True)
                 return out_path
             last = f"HTTP {r.status_code}"
         except Exception as e:  # noqa: BLE001
