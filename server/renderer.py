@@ -53,18 +53,20 @@ def _props_file(props: dict) -> Path:
 
 
 def render_video(props: dict, out_path: Path,
-                 fps: int = None, composition: str = "CinematicStory") -> Path:
+                 fps: int = None, crf: int = None,
+                 composition: str = "CinematicStory") -> Path:
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     if out_path.exists():
         out_path.unlink()
     props_file = _props_file(props)
     fps = fps or config.FPS
+    crf = crf if crf is not None else config.CRF
     cmd = [
         _npx(), "remotion", "render",
         "src/index.ts", composition, str(out_path),
         "--props", str(props_file),
-        "--codec=h264", "--crf", str(config.CRF),
+        "--codec=h264", "--crf", str(crf),
         "--fps", str(fps), "--pixel-format=yuv420p",
         "--concurrency", str(config.CONCURRENCY),
         "--log=info",
