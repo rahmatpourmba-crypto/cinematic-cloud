@@ -1,9 +1,16 @@
 """Persian narration synthesis.
 
-Primary path: Google Cloud Text-to-Speech (fa-IR-Wavenet-A, MP3).
-Automatic fallback: edge-tts (fa-IR-FaridNeural) so it works offline / free.
+Priority: Google Cloud Text-to-Speech (Neural2/Chirp, MP3) when GCP
+credentials are available; automatic fallback to edge-tts so the pipeline
+always works offline / free.
+
+edge-tts runs inside a fresh subprocess (scripts/tts_once.py) to isolate
+its async/websocket stack from the Uvicorn event loop on Windows — the
+in-process variant intermittently fails with NoAudioReceived there.
 """
-import asyncio
+import os
+import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -43,27 +50,31 @@ def _google_tts(text: str, out_path: Path) -> Path:
 
 
 def _edge_tts(text: str, out_path: Path) -> Path:
-    import edge_tts
+    from .audioproc import normalize_narration
 
-    async def _run():
-        data = b""
-        async for chunk in edge_tts.Communicate(
-            text, "fa-IR-FaridNeural", rate="-12%"
-        ).stream():
-            if chunk["type"] == "audio":
-                data += chunk["data"]
-        return data
-
+    helper = config.ROOT / "scripts" / "tts_once.py"
+    last = None
     for attempt in range(4):
+        raw = out_path.with_suffix(".raw.mp3")
+        dbg = config.WORK_DIR / f"tts_dbg_{out_path.stem}.txt"
         try:
-            data = asyncio.run(_run())
-            if data:
-                out_path.write_bytes(data)
+            proc = subprocess.run(
+                [sys.executable, str(helper), str(raw), str(dbg)],
+                input=text, text=True, encoding="utf-8", capture_output=True,
+                timeout=300, cwd=str(config.ROOT),
+            )
+            if dbg.exists():
+                print(f"  [edge-tts] dbg: {dbg.read_text(encoding='utf-8', errors='replace').strip()}"[:500], flush=True)
+            if proc.returncode == 0 and raw.exists() and raw.stat().st_size > 0:
+                normalize_narration(raw, out_path)
+                raw.unlink(missing_ok=True)
                 return out_path
-        except Exception:  # noqa: BLE001
-            pass
+            last = (proc.stderr or "").strip()[-400:] or f"exit={proc.returncode}"
+        except Exception as e:  # noqa: BLE001
+            last = f"attempt {attempt + 1}: {type(e).__name__}: {e}"
+        print(f"  [edge-tts] {last}", flush=True)
         time.sleep(5 * (attempt + 1))
-    raise RuntimeError("edge-tts failed")
+    raise RuntimeError(f"edge-tts failed ({last})")
 
 
 def synthesize(text: str, out_path: Path, force=False) -> Path:
