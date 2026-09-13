@@ -95,6 +95,7 @@ export const KenBurns: React.FC<KenBurnsProps> = ({src, index, zoom = 0.16}) => 
           height: '100%',
           objectFit: 'cover',
           transform: `scale(${scale}) translateX(${pan}%)`,
+          filter: 'saturate(1.16) contrast(1.06)',
         }}
       />
     </AbsoluteFill>
