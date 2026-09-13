@@ -177,11 +177,12 @@ jobs:
 
           git checkout --orphan gh-pages 2>/dev/null || true
           git rm -rf . --quiet >/dev/null 2>&1 || true
-          # Move ONLY the site files into repo root
-          mv _page/* .
-          mv _page/.[^.]* . 2>/dev/null || true
+          # Copy ONLY the site files to repo root (do NOT bring node_modules, out, etc.)
+          cp -f _page/index.html _page/style.css _page/app.js .
+          cp -f _page/.nojekyll .
+          cp -rf _page/videos _page/jobs .
           rm -rf _page
-          git add -A
+          git add -- index.html style.css app.js .nojekyll videos jobs
           if ! git diff --cached --quiet; then
             git commit -m "studio: publish $JID"
             git push origin gh-pages --force
