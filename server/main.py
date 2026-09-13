@@ -1,20 +1,27 @@
-"""Cloud Run API — triggers the cinematic pipeline over HTTP.
+"""Cloud Run API — cinematic pipeline + prompt studio over HTTP.
 
-Call it from GitHub Actions schedule or cron with the webhook secret header:
-
+Story pipeline (GitHub Actions schedule / cron):
     curl -X POST $CINEMATIC_URL/render -H "X-Webhook-Secret: $SECRET" \
          -d '{"story_id":"solomon_hoopoe","episode":2,"upload":true}'
+
+Prompt studio (web UI):
+    GET  /                         -> index.html
+    POST /api/generate             -> {"job_id": "..."}
+    GET  /api/jobs/{job_id}        -> status + /media/<file> when done
 """
 import os
 
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import config, pipeline
+from . import config, pipeline, studio
 from .utils import get_story, list_stories, load_app
 
-app = FastAPI(title="Cinematic Cloud", version="1.0.0")
+app = FastAPI(title="Cinematic Cloud", version="2.0.0")
+
+STUDIO_DIR = config.ROOT / "public" / "studio"
 
 
 class RenderRequest(BaseModel):
@@ -24,13 +31,23 @@ class RenderRequest(BaseModel):
     force: bool = False
 
 
+class GenerateRequest(BaseModel):
+    prompt: str = Field(min_length=8, max_length=4000)
+    style: str = Field(default="cinematic",
+                       pattern="^(cinematic|fantasy|docu|islamic)$")
+    quality: str = Field(default="full", pattern="^(hd|full)$")
+
+
 def _check_secret(x_webhook_secret: str | None):
     if config.WEBHOOK_SECRET and x_webhook_secret != config.WEBHOOK_SECRET:
         raise HTTPException(status_code=403, detail="bad webhook secret")
 
 
 @app.get("/")
-def root():
+def index():
+    index_html = STUDIO_DIR / "index.html"
+    if index_html.exists():
+        return FileResponse(index_html)
     return {"app": "cinematic-cloud", "docs": "/docs"}
 
 
@@ -40,7 +57,28 @@ def health():
         "ok": True,
         "stories": list_stories(load_app()),
         "google_available": config.google_available(),
+        "studio": STUDIO_DIR.exists(),
     }
+
+
+@app.post("/api/generate")
+def api_generate(req: GenerateRequest):
+    job = studio.create_job(req.prompt)
+    studio.generate_async(job, req.prompt, req.style, req.quality)
+    return {"job_id": job["id"]}
+
+
+@app.get("/api/jobs/{job_id}")
+def api_job(job_id: str):
+    job = studio.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="unknown job")
+    return job
+
+
+@app.get("/api/jobs")
+def api_jobs():
+    return {"jobs": studio.job_list()}
 
 
 @app.post("/render")
@@ -73,6 +111,11 @@ def render_all(x_webhook_secret: str | None = Header(default=None)):
         except Exception as e:  # noqa: BLE001
             results.append({"story_id": s["id"], "error": str(e)})
     return {"results": results}
+
+
+# Serve generated videos / stills + studio assets.
+app.mount("/media", StaticFiles(directory=str(config.OUT_DIR)), name="media")
+app.mount("/studio", StaticFiles(directory=str(STUDIO_DIR)), name="studio")
 
 
 if __name__ == "__main__":
