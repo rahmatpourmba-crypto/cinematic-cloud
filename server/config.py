@@ -23,8 +23,7 @@ VERTEX_LOCATION = os.environ.get("VERTEX_LOCATION", "us-central1")
 GCS_BUCKET = os.environ.get("GCS_BUCKET", "")
 USE_GOOGLE_IMAGEN = os.environ.get("USE_GOOGLE_IMAGEN", "auto")  # auto|1|0
 USE_GOOGLE_TTS = os.environ.get("USE_GOOGLE_TTS", "auto")  # auto|1|0
-TTS_VOICE = os.environ.get("TTS_VOICE", "fa-IR-Wavenet-A")
-TTS_SPEAKING_RATE = float(os.environ.get("TTS_SPEAKING_RATE", "0.92"))
+TTS_SPEAKING_RATE = float(os.environ.get("TTS_SPEAKING_RATE", "0.96"))
 IMAGEN_MODEL = os.environ.get("IMAGEN_MODEL", "imagen-3.0-generate-002")
 IMAGEN_ASPECT = os.environ.get("IMAGEN_ASPECT", "16:9")
 
@@ -34,6 +33,11 @@ FPS = int(os.environ.get("FPS", "30"))
 WIDTH = int(os.environ.get("WIDTH", "1920"))
 HEIGHT = int(os.environ.get("HEIGHT", "1080"))
 CRF = int(os.environ.get("CRF", "18"))
+
+# Keep the Google Neural voice tier; env TTS_VOICE overrides.
+# fa-IR-Neural2-A is a confirmed high-quality natural Persian voice.
+TTS_VOICE = os.environ.get("TTS_VOICE", "fa-IR-Neural2-A")
+TTS_FALLBACK_VOICE = os.environ.get("TTS_FALLBACK_VOICE", "fa-IR-DilaraNeural")
 
 
 def _default_concurrency() -> int:
@@ -58,12 +62,12 @@ YT_CATEGORY = int(os.environ.get("YOUTUBE_CATEGORY", "27"))
 
 def google_available() -> bool:
     """True when the environment looks like it has GCP credentials."""
-    if not GOOGLE_CLOUD_PROJECT:
-        return False
     try:
         import google.auth
 
-        creds, _ = google.auth.default()
-        return bool(creds and creds.valid)
+        creds, project = google.auth.default()
+        if not creds or not getattr(creds, "valid", False):
+            return False
+        return bool(project or getattr(creds, "project_id", None) or GOOGLE_CLOUD_PROJECT)
     except Exception:
         return False
