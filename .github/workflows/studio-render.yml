@@ -2,7 +2,9 @@ name: studio-render
 
 # The prompt studio, 100% on GitHub: a new issue with the magic marker
 # "<!-- studio-job -->" triggers a render on the runner; the result is
-# committed to gh-pages (which GitHub Pages serves).
+# committed to gh-pages (which GitHub Pages serves). The gh-pages branch is
+# rebuilt deterministically from scratch on every publish so it never
+# accumulates stale repo files.
 
 on:
   issues:
@@ -82,7 +84,7 @@ jobs:
         if: steps.gate.outputs.is_studio == 'true'
         run: python scripts/studio_gh.py payload.json
 
-      - name: Publish to gh-pages
+      - name: Publish to gh-pages (deterministic rebuild)
         if: steps.gate.outputs.is_studio == 'true'
         shell: bash
         run: |
@@ -93,30 +95,20 @@ jobs:
           VID=$(python -c "import json;print(json.load(open('$ART'))['video'])")
           POSTER=$(python -c "import json;print(json.load(open('$ART'))['poster'])")
           IMG=out/"$VID"; PNG=out/"$POSTER"
+          REPO="$GITHUB_REPOSITORY"
+          RAW="https://raw.githubusercontent.com/$REPO/gh-pages/videos"
 
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Stage the site files from the main checkout before switching branches.
-          mkdir -p _site
-          cp -f public/studio/index.html public/studio/style.css public/studio/app.js _site/
+          rm -rf _page && mkdir -p _page/jobs _page/videos
+          cp -f public/studio/index.html public/studio/style.css public/studio/app.js _page/
+          touch _page/.nojekyll
+          mkdir -p "_page/videos/$JID"
+          cp -f "$IMG" "_page/videos/$JID/video.mp4"
+          cp -f "$PNG" "_page/videos/$JID/poster.jpg"
 
-          git fetch origin gh-pages --depth=1 || true
-          if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
-            git checkout -B gh-pages --force origin/gh-pages
-          else
-            git checkout --orphan gh-pages
-            git rm -rf . --quiet >/dev/null 2>&1 || true
-          fi
-
-          cp -f _site/index.html _site/style.css _site/app.js ./
-          rm -rf _site
-          touch .nojekyll
-          mkdir -p videos/ jobs/
-
-          mkdir -p "videos/$JID"
-          cp -f "$IMG" "videos/$JID/video.mp4"
-          cp -f "$PNG" "videos/$JID/poster.jpg"
+          curl -sfL "$RAW/index.json" -o _page/videos/index.json 2>/dev/null || echo '[]' > _page/videos/index.json
 
           python - <<'EOF'
           import json, datetime
@@ -131,11 +123,9 @@ jobs:
               "error": art.get("error"),
               "created": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
           }
-          with open(f"jobs/{jid}.json", "w", encoding="utf-8") as f:
-              json.dump(entry, f, ensure_ascii=False)
           idx = []
           try:
-              idx = json.load(open("videos/index.json", encoding="utf-8"))
+              idx = json.load(open('_page/videos/index.json', encoding='utf-8'))
               if not isinstance(idx, list):
                   idx = []
           except Exception:
@@ -143,25 +133,52 @@ jobs:
           idx = [x for x in idx if x.get("id") != jid]
           idx.insert(0, entry)
           idx = idx[:24]
-          with open("videos/index.json", "w", encoding="utf-8") as f:
+          with open('_page/videos/index.json', 'w', encoding='utf-8') as f:
               json.dump(idx, f, ensure_ascii=False)
+          for x in idx:
+              pid = x["id"]
+              with open(f'_page/jobs/{pid}.json', 'w', encoding='utf-8') as f:
+                  json.dump(x, f, ensure_ascii=False)
           EOF
 
-          # Keep only the newest 24 videos on the branch (avoid growth).
+          # Restore retained videos so the rebuilt branch keeps them (best
+          # effort; entries whose files can't be fetched are dropped).
           python - <<'EOF'
-          import json, subprocess
-          idx = json.load(open("videos/index.json", encoding="utf-8"))
-          keep = {x["id"] for x in idx}
-          out = subprocess.run(["git", "ls-files", "videos/"],
-                               capture_output=True, text=True).stdout.split()
-          for path in out:
-              parts = path.split("/")
-              if len(parts) >= 3 and parts[2] not in keep:
-                  subprocess.run(["git", "rm", "-r", "--quiet",
-                                  f"videos/{parts[1]}/{parts[2]}"])
+          import json, os, shutil, subprocess
+          repo = os.environ["GITHUB_REPOSITORY"]
+          idx = json.load(open('_page/videos/index.json', encoding='utf-8'))
+          keep = []
+          for v in idx:
+              if v["status"] != "done":
+                  continue
+              pid = v["id"]
+              d = f'_page/videos/{pid}'
+              os.makedirs(d, exist_ok=True)
+              ok = True
+              for f in ("video.mp4", "poster.jpg"):
+                  if not os.path.exists(f'{d}/{f}'):
+                      r = subprocess.run(
+                          ["curl", "-sfL",
+                           f"https://raw.githubusercontent.com/{repo}/gh-pages/videos/{pid}/{f}",
+                           "-o", f'{d}/{f}'])
+                      if r.returncode != 0:
+                          ok = False
+                          break
+              if ok:
+                  keep.append(v)
+          with open('_page/videos/index.json', 'w', encoding='utf-8') as f:
+              json.dump(keep, f, ensure_ascii=False)
+          for v in idx:
+              if v not in keep:
+                  shutil.rmtree(f'_page/videos/{v["id"]}', ignore_errors=True)
+                  if os.path.exists(f'_page/jobs/{v["id"]}.json'):
+                      os.remove(f'_page/jobs/{v["id"]}.json')
           EOF
 
-          git add -- index.html style.css app.js .nojekyll videos jobs
+          git checkout --orphan gh-pages 2>/dev/null || true
+          git rm -rf . --quiet >/dev/null 2>&1 || true
+          cp -rf _page/. .
+          git add -A
           if ! git diff --cached --quiet; then
             git commit -m "studio: publish $JID"
             git push origin gh-pages --force
