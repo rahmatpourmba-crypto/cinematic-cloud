@@ -145,12 +145,13 @@ jobs:
           if [ -f .studio_artifacts.json ]; then
             ST=$(python -c "import json;print(json.load(open('.studio_artifacts.json'))['status'])")
             if [ "$ST" = "done" ]; then
-              MSG="✅ ویدیوی شما آماده است! 🎬
-پیشنمایش در استودیو: $PAGE_URL
-دانلود مستقیم: $VIDEO_LINK"
-            else
-              MSG="⚠️ رندر ناموفق بود. جزئیات در لاگ workflow."
-            fi
+            MSG=$(printf '%s\n' \
+              "✅ ویدیوی شما آماده است! 🎬" \
+              "پیشنمایش در استودیو: $PAGE_URL" \
+              "دانلود مستقیم: $VIDEO_LINK")
+          else
+            MSG="⚠️ رندر ناموفق بود. جزئیات در لاگ workflow."
+          fi
           else
             MSG="⚠️ رندر شروع نشد (خطا در مراحل آماده‌سازی)."
           fi
