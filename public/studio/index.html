@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>قصه‌نگار | استودیو ویدیوی هوش مصنوعی</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Vazirmatn:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/studio/style.css" />
+</head>
+<body>
+<div class="bg-ornament"></div>
+
+<header class="head">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <span class="mark">قصه</span>
+      <span><b>قصه‌نگار</b><small>PROMPT STUDIO</small></span>
+    </a>
+    <span id="engine" class="engine-pill"><span class="dot"></span><span id="engineTxt">در حال بررسی موتور…</span></span>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero reveal">
+    <span class="eyebrow">استودیو هوش مصنوعی</span>
+    <h1>ویدیوی سینمایی از یک پرامپت ساده</h1>
+    <p>متن قصه‌ات را بنویس؛ ما تصویر، روایت صوتی و مونتاژ سینمایی آن را برایت می‌سازیم. رزولوشن بالا، صدای طبیعی و نورپردازی سینمایی.</p>
+    <div class="chips">
+      <span class="chip">● تصویر photorealistic</span>
+      <span class="chip">● روایت فارسی طبیعی</span>
+      <span class="chip">● مونتاژ ۴K-ready</span>
+      <span class="chip">● دانلود مستقیم</span>
+    </div>
+  </section>
+
+  <section class="gen reveal">
+    <div class="card">
+      <label class="field" for="prompt">پرامپت / قصه‌ات را بنویس (مثل: «ماهی‌گیر فقیری…»)</label>
+      <textarea id="prompt" class="prompt" placeholder="داستان یک خلبان شب را بنویس که پس از طوفان، نور فرودگاه را از بالای ابرها می‌بیند و…"></textarea>
+
+      <div class="controls">
+        <div class="ctrl">
+          <label class="field">سبک بصری</label>
+          <div class="styles" id="styles">
+            <button type="button" class="style-btn active" data-style="cinematic">سینمایی</button>
+            <button type="button" class="style-btn" data-style="fantasy">فانتزی</button>
+            <button type="button" class="style-btn" data-style="islamic">اسلامی</button>
+            <button type="button" class="style-btn" data-style="docu">مستند</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <label class="field">کیفیت</label>
+          <select id="quality">
+            <option value="full">Full HD (1080p)</option>
+            <option value="hd">HD (720p) — سریع‌تر</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <button id="go" class="btn btn-gold" style="width:100%">
+            <span>ساخت ویدیو</span> <span aria-hidden="true">✦</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="result reveal">
+    <div class="section-title"><h2>آخرین ساخته‌ها</h2></div>
+
+    <div id="active" class="hidden">
+      <div class="progress-box">
+        <div class="pbar"><div id="pfill" class="pfill" style="width:0%"></div></div>
+        <div class="pmeta">
+          <span id="pstage">در صف…</span>
+          <span id="ppercent">۰٪</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="videoBox" class="video-box hidden">
+      <video id="player" controls playsinline preload="metadata"></video>
+      <div class="result-actions">
+        <a id="dl" class="btn btn-gold" target="_blank" rel="noopener">دانلود ویدیو</a>
+        <button id="again" class="btn btn-ghost">ساخت ویدیو‌ی دیگر</button>
+      </div>
+    </div>
+
+    <ul id="jobs" class="jobs"></ul>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>ساخته‌شده با <b>قصه‌نگار</b> — رندر ابری Remotion + Vertex AI</span>
+  </div>
+</footer>
+
+<script src="/studio/app.js"></script>
+</body>
+</html>
