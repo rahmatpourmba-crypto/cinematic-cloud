@@ -29,8 +29,8 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Skip gracefully until GCP secrets/vars are configured (avoids red runs).
-    if: ${{ vars.GCP_PROJECT != '' && secrets.GCP_SERVICE_ACCOUNT != '' && secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' }}
+    # Skip gracefully until GCP vars are configured (secrets are resolved in steps).
+    if: ${{ vars.GCP_PROJECT != '' }}
     steps:
       - uses: actions/checkout@v4
 
