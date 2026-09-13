@@ -169,6 +169,8 @@ jobs:
       - name: Comment on issue
         if: steps.gate.outputs.is_studio == 'true'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           PAGE_URL="https://rahmatpourmba-crypto.github.io/cinematic-cloud/"
           if [ -f .studio_artifacts.json ]; then
