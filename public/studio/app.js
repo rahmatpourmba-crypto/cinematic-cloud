@@ -1,7 +1,9 @@
-/* قصه‌نگار — Prompt Studio client */
+/* قصه‌نگار — Prompt Studio client (GitHub Pages + Actions mode) */
 (function () {
   "use strict";
 
+  var OWNER = "rahmatpourmba-crypto";
+  var REPO = "cinematic-cloud";
   var $ = function (id) { return document.getElementById(id); };
   var pollTimer = null;
 
@@ -11,12 +13,7 @@
     });
   };
 
-  var tagOf = function (st) {
-    if (st === "done") return "✔ آماده";
-    if (st === "failed") return "✖ ناموفق";
-    if (st === "running") return "⏳ در حال ساخت";
-    return "⏳ در صف";
-  };
+  var faDigits = function (n) { return faNum(n); };
 
   /* style picker */
   var styleEl = $("styles");
@@ -27,79 +24,84 @@
     btn.classList.add("active");
   });
 
-  /* engine status */
-  fetch("/health")
-    .then(function (r) { return r.json(); })
-    .then(function (h) {
-      var on = h.google_available;
-      $("engineTxt").textContent = on ? "موتور گوگل فعال" : "حالت رایگان";
-      $("engine").querySelector(".dot").classList.toggle("off", !on);
-    })
-    .catch(function () {
-      $("engineTxt").textContent = "آفلاین";
-    });
+  $("engineTxt").textContent = "موتور رندر: GitHub Actions";
+
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+    return "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function jobUrl(id) { return "jobs/" + id + ".json"; }
+  function videoUrl(id) { return "videos/" + id + "/video.mp4"; }
+
+  function renderJob(job, id) {
+    $("active").classList.remove("hidden");
+    if (!job) {
+      $("pstage").textContent = "در حال ساخت… (صفحه GitHub را باز نگه دار)";
+      $("ppercent").textContent = "⏳";
+      return false;
+    }
+    if (job.status === "done") {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      $("pstage").textContent = "آماده ✦";
+      $("ppercent").textContent = "۱۰۰٪";
+      var box = $("videoBox");
+      box.classList.remove("hidden");
+      $("player").src = job.video || videoUrl(id);
+      $("player").poster = job.poster || "";
+      $("dl").href = job.video || videoUrl(id);
+      $("pstage").textContent = "آماده ✦";
+      $("ppercent").textContent = "۱۰۰٪";
+      return true;
+    }
+    if (job.status === "failed") {
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      $("pstage").textContent = "خطا: " + (job.error || job.message || "نامشخص");
+      $("ppercent").textContent = "—";
+      return true;
+    }
+    $("pstage").textContent = job.message || "در حال ساخت… (معمولاً ۵ تا ۲۰ دقیقه)";
+    $("ppercent").textContent = "⏳";
+    return false;
+  }
 
   function poll(id) {
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(function () {
-      fetch("/api/jobs/" + id)
+    var watch = function () {
+      fetch(jobUrl(id), { cache: "no-store" })
         .then(function (r) { return r.json(); })
-        .then(renderJob)
-        .catch(function () {});
-    }, 2000);
+        .then(function (j) {
+          if (renderJob(j, id)) { clearInterval(pollTimer); pollTimer = null; }
+        })
+        .catch(function () { renderJob(null, id); });
+    };
+    watch();
+    pollTimer = setInterval(watch, 4000);
   }
 
-  function renderJob(job) {
-    if (!job) return;
-    $("active").classList.remove("hidden");
-    $("pstage").textContent = job.stage || job.status;
-    $("ppercent").textContent = faNum(job.progress) + "٪";
-    $("pfill").style.width = job.progress + "%";
-
-    if (job.status === "done") {
-      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-      var box = $("videoBox");
-      box.classList.remove("hidden");
-      $("player").src = job.video;
-      $("dl").href = job.video;
-      $("pstage").textContent = "آماده ✦";
-      $("ppercent").textContent = "۱۰۰٪";
-    } else if (job.status === "failed") {
-      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-      $("pstage").textContent = "خطا: " + job.message;
-      $("ppercent").textContent = "—";
-    }
-    refreshList();
-  }
-
-  function refreshList() {
-    fetch("/api/jobs")
+  function listVideos() {
+    fetch("videos/index.json", { cache: "no-store" })
       .then(function (r) { return r.json(); })
-      .then(function (j) {
+      .then(function (arr) {
         var ul = $("jobs");
         ul.innerHTML = "";
-        (j.jobs || []).forEach(function (jb) {
+        (Array.isArray(arr) ? arr : []).slice(0, 12).forEach(function (v) {
           var li = document.createElement("li");
           var tag = document.createElement("span");
-          tag.className = "tag " + jb.status;
-          tag.textContent = tagOf(jb.status);
+          tag.className = "tag " + (v.status === "done" ? "done" : "queued");
+          tag.textContent = v.status === "done" ? "✔ آماده" : "⏳";
           var text = document.createElement("span");
-          text.textContent = jb.prompt ? jb.prompt.slice(0, 46) + "…" : "—";
+          text.textContent = (v.prompt || "—").slice(0, 46) + "…";
           var ts = document.createElement("span");
           ts.className = "date";
-          ts.textContent = jb.created_at;
+          ts.textContent = v.created || "";
           var link = document.createElement("a");
-          if (jb.status === "done") {
-            link.href = jb.video;
+          if (v.status === "done") {
+            link.href = "videos/" + v.id + "/video.mp4";
             link.target = "_blank";
             link.textContent = "مشاهده";
-          } else {
-            link.textContent = "";
           }
-          li.appendChild(tag);
-          li.appendChild(text);
-          li.appendChild(link);
-          li.appendChild(ts);
+          li.appendChild(tag); li.appendChild(text); li.appendChild(link); li.appendChild(ts);
           ul.appendChild(li);
         });
       })
@@ -113,33 +115,34 @@
       $("prompt").style.borderColor = "#f87171";
       return;
     }
+    $("prompt").style.borderColor = "";
     var styleBtn = styleEl.querySelector(".style-btn.active");
-    var body = {
+    var payload = {
       prompt: prompt,
       style: styleBtn ? styleBtn.dataset.style : "cinematic",
       quality: $("quality").value
     };
+    var id = uuid();
+    payload.id = id;
+
+    var title = prompt.split("\n")[0].slice(0, 70);
+    var body = "<!-- studio-job -->\n" + JSON.stringify(payload);
+    window.open(
+      "https://github.com/" + OWNER + "/" + REPO + "/issues/new?title=" +
+        encodeURIComponent(title) + "&body=" + encodeURIComponent(body),
+      "_blank"
+    );
+
     $("go").disabled = true;
     $("videoBox").classList.add("hidden");
-
-    fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (res) {
-        $("go").disabled = false;
-        if (res.job_id) {
-          fetch("/api/jobs/" + res.job_id).then(function (r) { return r.json(); }).then(renderJob);
-          poll(res.job_id);
-        }
-      })
-      .catch(function () { $("go").disabled = false; });
+    $("active").classList.remove("hidden");
+    poll(id);
+    setTimeout(function () { $("go").disabled = false; }, 3000);
   });
 
   $("again").addEventListener("click", function () {
     $("videoBox").classList.add("hidden");
+    $("active").classList.add("hidden");
     $("prompt").focus();
   });
 
@@ -156,5 +159,5 @@
     reveals.forEach(function (el) { el.classList.add("in"); });
   }
 
-  refreshList();
+  listVideos();
 })();
