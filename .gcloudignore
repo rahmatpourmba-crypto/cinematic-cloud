@@ -1,0 +1,9 @@
+# Uploaded to Cloud Build; keep out heavy/unwanted files
+.work
+out
+__pycache__
+*.pyc
+.git
+.github
+node_modules
+*.log

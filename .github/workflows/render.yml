@@ -1,0 +1,64 @@
+name: render-scheduled
+
+on:
+  schedule:
+    # Weekly: every Wednesday 05:00 UTC
+    - cron: '0 5 * * 3'
+  workflow_dispatch:
+    inputs:
+      story_id:
+        description: 'Story id to render, empty = all stories'
+        required: false
+        default: ''
+      episode:
+        description: 'Episode number'
+        required: false
+        default: '1'
+      upload:
+        description: 'Upload result to YouTube (true/false)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT }}
+
+      - name: Trigger render on Cloud Run
+        env:
+          URL: ${{ vars.CINEMATIC_URL }}
+        run: |
+          TOKEN=$(gcloud auth print-access-token)
+          SID="${{ github.event.inputs.story_id }}"
+          EP_INPUT="${{ github.event.inputs.episode }}"
+          EP="${EP_INPUT:-1}"
+          UPLOAD_INPUT="${{ github.event.inputs.upload }}"
+          UPLOAD="${UPLOAD_INPUT:-false}"
+          if [ -z "$SID" ]; then
+            echo "Rendering ALL stories on $URL"
+            curl -fsS -X POST "$URL/render-all" -H "Authorization: Bearer $TOKEN"
+          else
+            echo "Rendering $SID ep $EP upload=$UPLOAD on $URL"
+            curl -fsS -X POST "$URL/render" \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"story_id\":\"$SID\",\"episode\":$EP,\"upload\":$UPLOAD}"
+          fi

@@ -1,0 +1,91 @@
+{
+  "series": "قصه‌های قرآنی",
+  "series_en": "Quranic Stories",
+  "subscribe_text": "لایک و اشتراک یادت نره\nهر هفته قصه‌های قرآنی جدید",
+  "stories": [
+    {
+      "id": "solomon_hoopoe",
+      "title_fa": "سلیمان و طاووس",
+      "title_en": "Solomon and the Hoopoe",
+      "description": "داستان سلیمان علیه السلام و طاووس پریشان در مسیر سفر به سبأ",
+      "tags": ["قصه قرآنی", "سلیمان", "طاووس", "سبأ", "حکمت"],
+      "prompt": "cinematic 4k ultra realistic scene of Prophet Solomon with the Hoopoe bird perched on his hand, ancient Middle Eastern palace with marble pillars, golden light streaming through ornate arches, epic scale, volumetric god rays, dust particles in sunlight, hyper realistic cinematic lighting, 35mm film grain, dramatic shadows, majestic atmosphere, no modern elements, no text",
+      "chapters": [
+        {
+          "title": "سلیمان و طاووس پریشان",
+          "title_en": "The Hoopoe",
+          "text": "سلیمان علیه السلام پیامبر بزرگ خداوند بود. روزی طاووسی برای سفر به سرزمین سبأ فرستاد تا خبر از آن سوی افق بیاورد.",
+          "prompt": "a single majestic hoopoe bird flying over a golden desert at dawn, glowing feathers with iridescent crest, rays of sun breaking through horizon clouds, cinematic wide shot, epic atmosphere"
+        },
+        {
+          "title": "سفر به سبأ",
+          "title_en": "Journey to Sheba",
+          "text": "سرزمین سبأ در جنوب عربستان باغ‌های شگفت‌انگیزی داشت. سلیمان با حکمت خداوند، مردم آن سرزمین را به راه راست دعوت کرد.",
+          "prompt": "lush ancient kingdom of Sheba with vast green gardens and terraces in a desert valley, golden palace complex, morning mist, cinematic establishing shot, epic scale"
+        },
+        {
+          "title": "پاسخ ملت سبأ",
+          "title_en": "The Answer",
+          "text": "ملکه سبأ به دربار سلیمان آمد و نشانه‌های خداوند را دید. دل او پر از ایمان شد و در برابر عظمت پروردگار سر تعظیم فرود آورد.",
+          "prompt": "an elegant ancient queen kneeling before a grand golden throne in a majestic palace hall, warm torchlight, awe and reverence in the scene, cinematic close wide shot, hyper realistic"
+        }
+      ]
+    },
+    {
+      "id": "saleh_camel",
+      "title_fa": "صالح و شتر معجزه‌آسا",
+      "title_en": "Saleh and the She-Camel",
+      "description": "داستان صالح علیه السلام و شتر معجزه‌آسا در سرزمین تیم",
+      "tags": ["قصه قرآنی", "صالح", "شتر", "معجزه", "تیم"],
+      "prompt": "cinematic 4k ultra realistic scene of Prophet Saleh standing before a massive miraculous she camel in the rocky mountains of Tayma, desert landscape at golden hour, dramatic wind swept sand dunes, ancient Arabian rock formations, volumetric light beams, hyper realistic cinematic lighting, 35mm film grain, epic scale, solemn atmosphere, no modern elements, no text",
+      "chapters": [
+        {
+          "title": "صالح و قوم ثمود",
+          "title_en": "The People of Thamud",
+          "text": "صالح علیه السلام به قوم ثمود فرستاده شد. آن‌ها در دره‌هایی در دل کوه‌های شمال عربستان زندگی می‌کردند.",
+          "prompt": "ancient cave dwellings carved into massive red rock mountains in a desert at sunset, a lone prophet in traditional robes ascending a ridge, cinematic wide shot, epic scale"
+        },
+        {
+          "title": "معجزه شتر ماده",
+          "title_en": "The Miraculous Camel",
+          "text": "خداوند از دل کوه، شتری عظیم بیرون آورد که آب می‌داد. اما قوم ثمود به آن شتر بی‌حرمتی کردند.",
+          "prompt": "a colossal she camel emerging from a split in a rocky mountain wall, water streaming from the rock behind it, golden dust in the air, cinematic low angle shot, hyper realistic, awe inspiring"
+        },
+        {
+          "title": "سرانجام قوم",
+          "title_en": "The End",
+          "text": "قوم ثمود به صالح گفتند: اگر راست می‌گویی، عذابی که می‌گویی را بیاور. و عذاب خداوند فرا رسید.",
+          "prompt": "dark storm clouds gathering over ancient desert rock formations at dusk, ominous red and violet sky, a single small figure standing alone in a vast valley, cinematic apocalyptic scale"
+        }
+      ]
+    },
+    {
+      "id": "elephant_army",
+      "title_fa": "سپاه فیل و آبرهه",
+      "title_en": "The Army of the Elephant",
+      "description": "داستان آبرهه و سپاه فیل در تلاش برای نابودی کعبه",
+      "tags": ["قصه قرآنی", "فیل", "آبرهه", "کعبه", "عام الفیل"],
+      "prompt": "cinematic 4k ultra realistic scene of the legendary Army of the Elephant approaching the Kaaba of Mecca, massive war elephants with battle towers on their backs, ancient Arabian desert at dawn, dark ominous clouds, flocks of birds swirling in the sky, hyper realistic cinematic lighting, 35mm film grain, apocalyptic atmosphere, epic scale, no modern elements, no text",
+      "chapters": [
+        {
+          "title": "آبرهه و ارتشش",
+          "title_en": "Abraha's March",
+          "text": "آبرهه، فرمانده سپاه حبشه، با ارتشی بزرگ و فیل‌های جنگی قصد نابودی کعبه را داشت.",
+          "prompt": "a vast army marching across a desert plain at dusk, elephants with covered war towers, armored soldiers, banners waving, cinematic wide establishing shot, ominous sky"
+        },
+        {
+          "title": "سفر به مکه",
+          "title_en": "Toward Mecca",
+          "text": "سپاه آبرهه با فیل‌های عظیم به سمت مکه پیش می‌رفت. اما در راه کعبه، کاری از هیچ‌کس بر نیامد.",
+          "prompt": "massive war elephants marching through a narrow desert mountain pass, soldiers around them, dramatic golden haze, cinematic epic shot, hyper realistic detail"
+        },
+        {
+          "title": "نحس فرود آمد",
+          "title_en": "The Birds of Ababil",
+          "text": "پرندگانی از آسمان باران سنگ بر سر سپاه آبرهه ریختند و ارتش نابود شد. کعبه در امان ماند.",
+          "prompt": "huge flocks of birds flying low over a fleeing army in a desert, small stones falling from the sky through dramatic god rays, cinematic chaotic epic scene"
+        }
+      ]
+    }
+  ]
+}

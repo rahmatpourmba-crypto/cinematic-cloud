@@ -1,0 +1,11 @@
+node_modules
+.git
+.github
+.work
+out
+__pycache__
+*.pyc
+*.log
+.editorconfig
+.gitkeep
+.DS_Store

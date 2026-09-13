@@ -1,0 +1,80 @@
+name: deploy-cloud-run
+
+on:
+  push:
+    branches: [main]
+    paths: [
+      'src/**',
+      'server/**',
+      'scripts/**',
+      'public/**',
+      'Dockerfile',
+      'cloudbuild.yaml',
+      'requirements.txt',
+      'app.json',
+      'package.json',
+      '.github/workflows/deploy.yml',
+    ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT: ${{ vars.GCP_PROJECT }}
+  REGION: ${{ vars.GCP_REGION }}
+  REPO: ${{ vars.ARTIFACT_REPO || 'cinematic-artifacts' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Skip gracefully until GCP secrets/vars are configured (avoids red runs).
+    if: ${{ vars.GCP_PROJECT != '' && secrets.GCP_SERVICE_ACCOUNT != '' && secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT }}
+
+      - name: Build & push image via Cloud Build
+        run: |
+          IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT }}/${{ env.REPO }}/cinematic-cloud:${{ github.sha }}
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          gcloud builds submit --config=cloudbuild.yaml --substitutions=_IMAGE=$IMAGE .
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy cinematic-cloud \
+            --image=${{ env.IMAGE }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --cpu=2 \
+            --memory=4Gi \
+            --concurrency=1 \
+            --timeout=3600 \
+            --cpu-throttling=false \
+            --set-env-vars=GOOGLE_CLOUD_PROJECT=${{ env.PROJECT }},VERTEX_LOCATION=${{ vars.VERTEX_LOCATION || 'us-central1' }},GCS_BUCKET=${{ vars.GCS_BUCKET }},USE_GOOGLE_IMAGEN=${{ vars.USE_GOOGLE_IMAGEN || 'auto' }},USE_GOOGLE_TTS=${{ vars.USE_GOOGLE_TTS || 'auto' }},YOUTUBE_PRIVACY=${{ vars.YOUTUBE_PRIVACY || 'public' }},YOUTUBE_CATEGORY=${{ vars.YOUTUBE_CATEGORY || '27' }} \
+            --no-allow-unauthenticated
+
+      - name: Bind optional secrets (skip unless ENABLE_SECRETS=true)
+        if: ${{ vars.ENABLE_SECRETS == 'true' }}
+        run: |
+          gcloud run services update cinematic-cloud \
+            --region=${{ env.REGION }} \
+            --set-secrets=WEBHOOK_SECRET=cinematic-webhook-secret:latest,YOUTUBE_TOKEN_B64=youtube-token-b64:latest
+
+      - name: Show service URL
+        run: |
+          URL=$(gcloud run services describe cinematic-cloud --region=${{ env.REGION }} --format='value(status.url)')
+          echo "Service: $URL"
+          echo "Set repo variable CINEMATIC_URL=$URL in GitHub for scheduled renders."

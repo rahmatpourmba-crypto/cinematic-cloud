@@ -1,0 +1,18 @@
+# === local caches / outputs ===
+.work/
+out/
+__pycache__/
+*.pyc
+*.log
+node_modules/
+
+# === env / secrets ===
+.env
+*.pem
+*.key
+client_secret*.json
+token*.pickle
+
+# === OS ===
+.DS_Store
+Thumbs.db

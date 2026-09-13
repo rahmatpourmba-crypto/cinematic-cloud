@@ -1,0 +1,75 @@
+name: render-runner
+
+# Fallback / dev variant: renders directly on the GitHub runner (no GCP needed).
+# Image source = Pollinations, narration = edge-tts.
+
+on:
+  workflow_dispatch:
+    inputs:
+      story_id:
+        description: 'Story id to render, empty = all stories'
+        required: false
+        default: ''
+      episode:
+        description: 'Episode number'
+        required: false
+        default: '1'
+      upload:
+        description: 'Upload result to YouTube (true/false)'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      USE_GOOGLE_IMAGEN: 0
+      USE_GOOGLE_TTS: 0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Ensure Headless Chrome
+        run: npx remotion browser ensure
+
+      - name: Run pipeline
+        env:
+          YOUTUBE_TOKEN_B64: ${{ secrets.YOUTUBE_TOKEN_B64 }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          STORY="${{ github.event.inputs.story_id }}"
+          EP_INPUT="${{ github.event.inputs.episode }}"
+          EP="${EP_INPUT:-1}"
+          ARGS="--episode $EP"
+          if [ -n "$STORY" ]; then ARGS="$ARGS --story $STORY"; fi
+          if [ "${{ github.event.inputs.upload }}" = "true" ]; then ARGS="$ARGS --upload"; fi
+          python scripts/local_render.py $ARGS
+
+      - name: Upload rendered videos
+        uses: actions/upload-artifact@v4
+        with:
+          name: cinematic-videos
+          path: out/*.mp4
+          if-no-files-found: warn
