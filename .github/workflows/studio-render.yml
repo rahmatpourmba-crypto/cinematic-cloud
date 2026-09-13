@@ -1,0 +1,158 @@
+name: studio-render
+
+# The prompt studio, 100% on GitHub: a new issue with the magic marker
+# "<!-- studio-job -->" triggers a render on the runner; the result is
+# committed to gh-pages (which GitHub Pages serves).
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: studio-render
+  cancel-in-progress: false
+
+jobs:
+  studio:
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.issue.body, '<!-- studio-job -->')
+    timeout-minutes: 115
+    env:
+      USE_GOOGLE_IMAGEN: "0"
+      USE_GOOGLE_TTS: "0"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          pip install -r requirements.txt
+          npm ci
+          npx remotion browser ensure
+
+      - name: Parse job payload
+        shell: bash
+        run: |
+          printf '%s' '${{ github.event.issue.body }}' | sed -n '2p' > payload.json
+          python -c "import json;d=json.load(open('payload.json',encoding='utf-8'));print('id     =',d['id']);print('style  =',d.get('style'));print('quality=',d.get('quality'));print('prompt =',d['prompt'][:80])"
+
+      - name: Render video (+images + narration)
+        run: python scripts/studio_gh.py payload.json
+
+      - name: Publish to gh-pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          ART=.studio_artifacts.json
+          test -f "$ART"  # render step must have finished OK
+          JID=$(python -c "import json;print(json.load(open('$ART'))['id'])")
+          VID=$(python -c "import json;print(json.load(open('$ART'))['video'])")
+          POSTER=$(python -c "import json;print(json.load(open('$ART'))['poster'])")
+          IMG=out/"$VID"
+          PNG=out/"$POSTER"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin gh-pages --depth=1 || true
+
+          if git rev-parse --verify gh-pages >/dev/null 2>&1; then
+            git checkout --track origin/gh-pages --force
+          else
+            git checkout --orphan gh-pages
+            git rm -rf --cached . >/dev/null 2>&1 || true
+          fi
+
+          # Fresh site files (public/studio) at the Pages root.
+          cp -f public/studio/index.html public/studio/style.css public/studio/app.js ./
+          touch .nojekyll
+          mkdir -p videos/ jobs/
+
+          mkdir -p "videos/$JID"
+          cp -f "$IMG"  "videos/$JID/video.mp4"
+          cp -f "$PNG"  "videos/$JID/poster.jpg"
+
+          python - <<'EOF'
+          import json, os, datetime
+          art = json.load(open('.studio_artifacts.json', encoding='utf-8'))
+          jid = art['id']
+          entry = {
+              "id": jid,
+              "status": art["status"],
+              "prompt": art["prompt"],
+              "video": f"videos/{jid}/video.mp4",
+              "poster": f"videos/{jid}/poster.jpg",
+              "error": art.get("error"),
+              "created": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+          }
+          with open(f"jobs/{jid}.json", "w", encoding="utf-8") as f:
+              json.dump(entry, f, ensure_ascii=False)
+          idx = []
+          try:
+              idx = json.load(open("videos/index.json", encoding="utf-8"))
+              if not isinstance(idx, list):
+                  idx = []
+          except Exception:
+              idx = []
+          idx = [x for x in idx if x.get("id") != jid]
+          idx.insert(0, entry)
+          idx = idx[:24]
+          with open("videos/index.json", "w", encoding="utf-8") as f:
+              json.dump(idx, f, ensure_ascii=False)
+          EOF
+
+          # Keep only the newest 24 videos on the branch (avoid growth).
+          python - <<'EOF'
+          import json, subprocess
+          idx = json.load(open("videos/index.json", encoding="utf-8"))
+          keep = {x["id"] for x in idx}
+          out = subprocess.run(["git", "ls-files", "videos/"],
+                               capture_output=True, text=True).stdout.split()
+          for path in out:
+              parts = path.split("/")
+              if len(parts) >= 3 and parts[2] not in keep:
+                  subprocess.run(["git", "rm", "-r", "--quiet",
+                                  f"videos/{parts[1]}/{parts[2]}"])
+          EOF
+
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "studio: publish $JID"
+            git push origin gh-pages --force
+          fi
+
+      - name: Comment on issue
+        if: always()
+        shell: bash
+        run: |
+          PAGE_URL="https://rahmatpourmba-crypto.github.io/cinematic-cloud/"
+          JID=$(python -c "import json;print(json.load(open('.studio_artifacts.json'))['id'])" 2>/dev/null || echo "")
+          VIDEO_LINK="$PAGE_URL videos/$JID/video.mp4"
+          if [ -f .studio_artifacts.json ]; then
+            ST=$(python -c "import json;print(json.load(open('.studio_artifacts.json'))['status'])")
+            if [ "$ST" = "done" ]; then
+              MSG="✅ ویدیوی شما آماده است! 🎬
+پیشنمایش در استودیو: $PAGE_URL
+دانلود مستقیم: $VIDEO_LINK"
+            else
+              MSG="⚠️ رندر ناموفق بود. جزئیات در لاگ workflow."
+            fi
+          else
+            MSG="⚠️ رندر شروع نشد (خطا در مراحل آماده‌سازی)."
+          fi
+          gh api -X POST \
+            "repos/rahmatpourmba-crypto/cinematic-cloud/issues/${{ github.event.issue.number }}/comments" \
+            -f body="$MSG" >/dev/null
