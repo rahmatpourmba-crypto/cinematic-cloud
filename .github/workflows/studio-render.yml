@@ -20,40 +20,71 @@ concurrency:
 jobs:
   studio:
     runs-on: ubuntu-latest
-    if: startsWith(github.event.issue.body, '<!-- studio-job -->')
+    if: github.event_name == 'issues'
     timeout-minutes: 115
     env:
       USE_GOOGLE_IMAGEN: "0"
       USE_GOOGLE_TTS: "0"
 
     steps:
+      - name: Gate — studio marker?
+        id: gate
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          python - <<'EOF'
+          import os
+          body = os.environ.get("ISSUE_BODY", "")
+          print("len(body):", len(body))
+          print("body[:80]:", repr(body[:80]))
+          ok = body.startswith("<!-- studio-job -->")
+          print("is_studio:", ok)
+          with open(os.environ.get("GITHUB_OUTPUT", "ghout"), "a") as f:
+              f.write("is_studio=" + str(ok).lower() + "\n")
+          try:
+              import json
+              line2 = body.splitlines()
+              if len(line2) > 1 and line2[1].strip():
+                  d = json.loads(line2[1])
+                  print("payload keys:", sorted(d.keys()))
+          except Exception as e:
+              print("payload warn:", e)
+          EOF
+
       - uses: actions/checkout@v4
+        if: steps.gate.outputs.is_studio == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.gate.outputs.is_studio == 'true'
         with:
           node-version: 20
           cache: npm
 
       - uses: actions/setup-python@v5
+        if: steps.gate.outputs.is_studio == 'true'
         with:
           python-version: '3.11'
 
       - name: Install deps
+        if: steps.gate.outputs.is_studio == 'true'
         run: |
           pip install -r requirements.txt
           npm ci
           npx remotion browser ensure
 
       - name: Parse job payload
+        if: steps.gate.outputs.is_studio == 'true'
         shell: bash
         run: |
           printf '%s' '${{ github.event.issue.body }}' | sed -n '2p' > payload.json
           python -c "import json;d=json.load(open('payload.json',encoding='utf-8'));print('id     =',d['id']);print('style  =',d.get('style'));print('quality=',d.get('quality'));print('prompt =',d['prompt'][:80])"
 
       - name: Render video (+images + narration)
+        if: steps.gate.outputs.is_studio == 'true'
         run: python scripts/studio_gh.py payload.json
 
       - name: Publish to gh-pages
+        if: steps.gate.outputs.is_studio == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -87,7 +118,7 @@ jobs:
           cp -f "$PNG"  "videos/$JID/poster.jpg"
 
           python - <<'EOF'
-          import json, os, datetime
+          import json, datetime
           art = json.load(open('.studio_artifacts.json', encoding='utf-8'))
           jid = art['id']
           entry = {
@@ -136,22 +167,21 @@ jobs:
           fi
 
       - name: Comment on issue
-        if: always()
+        if: steps.gate.outputs.is_studio == 'true'
         shell: bash
         run: |
           PAGE_URL="https://rahmatpourmba-crypto.github.io/cinematic-cloud/"
-          JID=$(python -c "import json;print(json.load(open('.studio_artifacts.json'))['id'])" 2>/dev/null || echo "")
-          VIDEO_LINK="$PAGE_URL videos/$JID/video.mp4"
           if [ -f .studio_artifacts.json ]; then
+            JID=$(python -c "import json;print(json.load(open('.studio_artifacts.json'))['id'])")
             ST=$(python -c "import json;print(json.load(open('.studio_artifacts.json'))['status'])")
             if [ "$ST" = "done" ]; then
-            MSG=$(printf '%s\n' \
-              "✅ ویدیوی شما آماده است! 🎬" \
-              "پیشنمایش در استودیو: $PAGE_URL" \
-              "دانلود مستقیم: $VIDEO_LINK")
-          else
-            MSG="⚠️ رندر ناموفق بود. جزئیات در لاگ workflow."
-          fi
+              MSG=$(printf '%s\n' \
+                "✅ ویدیوی شما آماده است! 🎬" \
+                "پیشنمایش در استودیو: $PAGE_URL" \
+                "دانلود مستقیم: $PAGE_URL videos/$JID/video.mp4")
+            else
+              MSG="⚠️ رندر ناموفق بود. جزئیات در لاگ workflow."
+            fi
           else
             MSG="⚠️ رندر شروع نشد (خطا در مراحل آماده‌سازی)."
           fi
